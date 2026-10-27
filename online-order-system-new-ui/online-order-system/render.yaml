@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: online-order-system
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    healthCheckPath: /health
+    disk:
+      name: orders-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: DB_PATH
+        value: /data/orders.db

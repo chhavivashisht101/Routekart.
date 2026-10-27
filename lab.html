@@ -1,0 +1,690 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OrderLab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
+<script>document.documentElement.dataset.theme="dark";</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  color-scheme: dark;
+  --bg:#03050b; --surface:#0a1022; --field:#070c1b; --hover:rgba(59,123,255,.07);
+  --line:rgba(110,150,255,.14); --ink:#e9eefc; --ink2:#a6b1d2; --ink3:#6f7ca4;
+  --accent:#3b7bff; --accent-hi:#7aa7ff; --soft:rgba(59,123,255,.14); --navy:#0b1b4a;
+  --bad:#f87171; --good:#34d399; --tip:#0d1630; --bar:#4f8cff; --bar-done:#34d399;
+  --st-pending:#fbbf24; --st-confirmed:#60a5fa; --st-shipped:#a78bfa; --st-delivered:#34d399; --st-cancelled:#f87171;
+}
+* { box-sizing:border-box; }
+body { margin:0; font:15px/1.6 "Manrope", system-ui, "Segoe UI", sans-serif; color:var(--ink); background:var(--bg); font-variant-numeric:tabular-nums; }
+body::before { content:""; position:fixed; inset:0; z-index:-2; pointer-events:none;
+  background:radial-gradient(70rem 34rem at 70% -12%, rgba(29,78,216,.30), transparent 62%), radial-gradient(44rem 30rem at -5% 105%, rgba(11,27,74,.55), transparent 60%); }
+body::after { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none; background-image:radial-gradient(rgba(130,170,255,.16) 1px, transparent 1px); background-size:26px 26px;
+  -webkit-mask-image:radial-gradient(ellipse 80% 55% at 60% 0%, #000, transparent 75%); mask-image:radial-gradient(ellipse 80% 55% at 60% 0%, #000, transparent 75%); }
+h1, h2, .brand, .kpi b, .stats b { font-family:"Sora", "Manrope", system-ui, sans-serif; }
+.shell { display:grid; grid-template-columns:250px 1fr; min-height:100vh; }
+.rail { position:sticky; top:0; height:100vh; padding:24px 14px; display:flex; flex-direction:column; gap:6px; background:linear-gradient(180deg, rgba(8,13,30,.92), rgba(3,5,11,.96)); border-right:1px solid var(--line); }
+.brand { display:flex; align-items:center; gap:11px; font-size:19px; font-weight:700; letter-spacing:-.02em; padding:2px 12px 6px; }
+.logo { width:30px; height:30px; border-radius:10px; background:radial-gradient(circle at 30% 25%, #7aa7ff, #1d4ed8 55%, #0b1b4a); box-shadow:0 0 0 1px rgba(122,167,255,.35), 0 8px 26px -6px #2563eb; }
+.tag { font-size:12.5px; color:var(--ink3); padding:0 12px 22px; line-height:1.5; }
+.rail button { all:unset; box-sizing:border-box; cursor:pointer; position:relative; display:flex; align-items:center; gap:13px; padding:12px 14px; border-radius:12px; color:var(--ink3); font-size:14.5px; font-weight:600; border:1px solid transparent; }
+.rail button svg { width:20px; height:20px; flex:none; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.rail button:hover { color:var(--ink); background:var(--hover); }
+.rail button[aria-current="page"] { color:#dbe7ff; background:linear-gradient(90deg, rgba(37,99,235,.28), rgba(37,99,235,.06)); border-color:rgba(96,150,255,.25); }
+.rail button[aria-current="page"]::before { content:""; position:absolute; left:-15px; top:10px; bottom:10px; width:3px; border-radius:0 3px 3px 0; background:var(--accent-hi); box-shadow:0 0 14px var(--accent); }
+.rail button[aria-current="page"] svg { color:var(--accent-hi); }
+button:focus-visible, select:focus-visible, input:focus-visible, .rail button:focus-visible { outline:2px solid var(--accent-hi); outline-offset:2px; }
+main { padding:40px 40px 70px; min-width:0; max-width:1360px; }
+.page { display:none; } .page.on { display:block; }
+h1 { font-size:36px; font-weight:700; letter-spacing:-.03em; line-height:1.15; margin:0 0 8px; }
+.lede { color:var(--ink2); margin:0 0 28px; max-width:64ch; }
+h2 { font-size:16px; font-weight:600; letter-spacing:-.01em; margin:0 0 4px; }
+.sub { color:var(--ink3); font-size:13px; margin:0 0 16px; }
+.card { background:linear-gradient(180deg, rgba(18,32,76,.34), rgba(8,13,30,.72)); border:1px solid var(--line); border-radius:20px; padding:22px 24px; box-shadow:inset 0 1px 0 rgba(150,185,255,.07); }
+.grid { display:grid; gap:18px; } .g2 { grid-template-columns:1fr 1fr; } .g3 { grid-template-columns:repeat(3,1fr); } .g4 { grid-template-columns:repeat(4,1fr); }
+.span2 { grid-column:span 2; }
+#kpis { grid-template-columns:repeat(5,1fr); }
+.kpi { padding:20px 22px; display:flex; flex-direction:column; justify-content:space-between; gap:14px; min-height:128px; }
+.kpi span { color:var(--ink2); font-size:13px; font-weight:600; }
+.kpi b { font-size:28px; font-weight:700; letter-spacing:-.03em; line-height:1.1; }
+.kpi.hero { grid-column:span 2; order:-1; border-color:rgba(110,160,255,.4); color:#fff;
+  background:radial-gradient(120% 150% at 0% 0%, #1f4fd8 0%, #0b1b4a 48%, #050a1c 100%); box-shadow:0 30px 70px -36px #2563eb, inset 0 1px 0 rgba(180,205,255,.18); }
+.kpi.hero span { color:rgba(215,228,255,.85); } .kpi.hero b { font-size:44px; }
+.chartbox { position:relative; height:260px; } .chartbox.tall { height:400px; }
+.bar { display:flex; gap:12px; flex-wrap:wrap; align-items:end; margin-bottom:16px; }
+label.f { display:flex; flex-direction:column; gap:6px; font-size:12.5px; font-weight:600; color:var(--ink2); }
+input, select { font:inherit; font-weight:500; padding:10px 13px; border:1px solid var(--line); border-radius:12px; background:var(--field); color:var(--ink); min-width:0; }
+input::placeholder { color:var(--ink3); }
+input:hover, select:hover { border-color:rgba(110,150,255,.32); }
+input[type=range] { padding:0; accent-color:var(--accent); }
+button.b { font:inherit; padding:10px 20px; border:1px solid rgba(130,170,255,.35); border-radius:12px; background:linear-gradient(180deg, #2f6bff, #1d4ed8); color:#fff; cursor:pointer; font-weight:700; box-shadow:0 12px 28px -14px #2563eb, inset 0 1px 0 rgba(255,255,255,.22); }
+button.b:hover { background:linear-gradient(180deg, #4b80ff, #2459e6); }
+button.b.ghost { background:transparent; color:var(--ink); border:1px solid var(--line); box-shadow:none; }
+button.b.ghost:hover { background:var(--soft); border-color:rgba(110,150,255,.35); }
+button.b:disabled { opacity:.45; cursor:wait; }
+table { width:100%; border-collapse:collapse; font-size:14px; }
+th { text-align:left; font-weight:600; color:var(--ink3); font-size:12.5px; padding:9px 12px; border-bottom:1px solid var(--line); white-space:nowrap; }
+td { padding:13px 12px; border-bottom:1px solid rgba(110,150,255,.08); } tbody tr:last-child td { border-bottom:0; } tbody tr:hover td { background:var(--hover); }
+td.r, th.r { text-align:right; }
+.dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:8px; vertical-align:baseline; }
+.pill { display:inline-flex; align-items:center; gap:7px; padding:3px 11px; border-radius:999px; font-size:12.5px; font-weight:700; text-transform:capitalize; color:var(--c); background:color-mix(in srgb, var(--c) 14%, transparent); border:1px solid color-mix(in srgb, var(--c) 28%, transparent); }
+.pill::before { content:""; width:6px; height:6px; border-radius:50%; background:var(--c); box-shadow:0 0 8px var(--c); }
+.s-pending { --c:var(--st-pending); } .s-confirmed { --c:var(--st-confirmed); } .s-shipped { --c:var(--st-shipped); } .s-delivered { --c:var(--st-delivered); } .s-cancelled { --c:var(--st-cancelled); }
+.stats { display:flex; gap:34px; flex-wrap:wrap; padding:16px 20px; background:rgba(37,99,235,.10); border:1px solid rgba(96,150,255,.2); border-radius:16px; margin-bottom:16px; font-size:13.5px; }
+.stats b { font-size:18px; font-weight:700; display:block; } .stats span { color:var(--ink2); font-size:12.5px; }
+.msg { min-height:20px; font-size:13.5px; margin-top:6px; font-weight:500; } .msg.bad { color:var(--bad); } .msg.good { color:var(--good); }
+.chips { display:flex; gap:8px; flex-wrap:wrap; }
+.chip { display:inline-flex; align-items:center; gap:7px; padding:6px 14px; border:1px solid var(--line); border-radius:999px; font-size:13px; font-weight:600; cursor:pointer; user-select:none; background:var(--field); color:var(--ink2); }
+.chip:has(input:checked) { border-color:rgba(96,150,255,.6); background:var(--soft); color:var(--ink); }
+.chip input { position:absolute; opacity:0; pointer-events:none; }
+.chip:has(input:focus-visible) { outline:2px solid var(--accent-hi); outline-offset:2px; }
+.sw { width:10px; height:10px; border-radius:3px; }
+canvas.vis { width:100%; height:240px; display:block; }
+.pager { display:flex; gap:12px; align-items:center; justify-content:flex-end; margin-top:16px; color:var(--ink2); font-size:13.5px; font-weight:500; }
+.empty { padding:30px; text-align:center; color:var(--ink2); }
+.note { color:var(--ink3); font-size:12.5px; margin-top:10px; }
+#rMap { width:100%; height:auto; display:block; background:radial-gradient(circle at 50% 0%, #0d1a40, #050912 75%); border:1px solid var(--line); border-radius:16px; }
+.legend { display:flex; gap:18px; flex-wrap:wrap; font-size:13px; color:var(--ink2); margin-top:12px; align-items:center; }
+.legend i { display:inline-block; width:24px; height:0; border-top:3px solid var(--accent); vertical-align:middle; margin-right:6px; }
+.legend i.dash { border-top:2px dashed var(--ink3); }
+tr.best td { font-weight:700; background:rgba(37,99,235,.14); }
+.badge { display:inline-block; font-size:11.5px; font-weight:700; padding:2px 10px; border-radius:999px; background:#1d4ed8; color:#fff; margin-left:8px; }
+details.how { margin-top:16px; color:var(--ink2); font-size:13.5px; } details.how summary { cursor:pointer; color:var(--ink); font-weight:700; }
+details.how p { margin:8px 0 0; max-width:80ch; }
+@media (max-width:1100px) { #kpis { grid-template-columns:1fr 1fr; } .kpi.hero { grid-column:1 / -1; } }
+@media (max-width:900px) {
+  .shell { grid-template-columns:1fr; }
+  .rail { position:fixed; top:auto; bottom:12px; left:12px; right:12px; height:auto; padding:6px; flex-direction:row; justify-content:space-around; border:1px solid var(--line); border-radius:20px; z-index:20; background:rgba(6,10,24,.94); backdrop-filter:blur(16px); }
+  .brand, .tag { display:none; }
+  .rail button { flex:1; flex-direction:column; gap:3px; padding:8px 4px; font-size:11px; text-align:center; justify-content:center; }
+  .rail button[aria-current="page"]::before { display:none; }
+  main { padding:22px 14px 110px; }
+  h1 { font-size:27px; }
+  .g2, .g3, .g4 { grid-template-columns:1fr 1fr; } .span2 { grid-column:1 / -1; }
+  .card { overflow-x:auto; } table { min-width:560px; }
+}
+@media (max-width:560px) { .g2, .g3, .g4, #kpis { grid-template-columns:1fr; } .stats { gap:18px; } }
+</style>
+</head>
+<body>
+<div class="shell">
+<nav class="rail" aria-label="Main">
+  <div class="brand"><i class="logo"></i>OrderLab</div>
+  <div class="tag">Orders, delivery routes and sorting algorithms you can measure.</div>
+  <button data-page="overview"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg><span>Overview</span></button>
+  <button data-page="orders"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span>Orders</span></button>
+  <button data-page="catalog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0"/></svg><span>Catalog</span></button>
+  <button data-page="route"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></svg><span>Delivery route</span></button>
+  <button data-page="lab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg><span>Sorting lab</span></button>
+</nav>
+
+<main>
+<!-- OVERVIEW -->
+<section class="page" id="page-overview">
+  <h1>Overview</h1>
+  <p class="lede">Sales activity from your orders. Load sample orders to see the charts fill up.</p>
+  <div class="bar">
+    <label class="f">Sample orders to add
+      <select id="seedCount"><option value="1000">1,000</option><option value="5000" selected>5,000</option><option value="20000">20,000</option><option value="50000">50,000</option></select></label>
+    <button class="b" id="seedBtn">Add sample orders</button>
+    <button class="b ghost" id="resetBtn">Delete all orders</button>
+    <span class="msg" id="seedMsg" role="status"></span>
+  </div>
+  <div class="grid g4" id="kpis"></div>
+  <div class="grid g2" style="margin-top:14px">
+    <div class="card span2"><h2>Orders per day</h2><p class="sub">Last 30 days</p><div class="chartbox"><canvas id="cDaily"></canvas></div></div>
+    <div class="card"><h2>Orders by status</h2><p class="sub">Count of orders in each state</p><div class="chartbox"><canvas id="cStatus"></canvas></div></div>
+    <div class="card"><h2>Order value distribution</h2><p class="sub">Orders grouped by total, in ten equal ranges</p><div class="chartbox"><canvas id="cHist"></canvas></div></div>
+    <div class="card"><h2>Top products by revenue</h2><p class="sub">Cancelled orders excluded</p><div class="chartbox"><canvas id="cProd"></canvas></div></div>
+    <div class="card"><h2>Top customers by spend</h2><p class="sub">Cancelled orders excluded</p><div class="chartbox"><canvas id="cCust"></canvas></div></div>
+  </div>
+</section>
+
+<!-- ORDERS -->
+<section class="page" id="page-orders">
+  <h1>Orders</h1>
+  <p class="lede">Sort the order list with any algorithm and see what it cost: comparisons, moves and time.</p>
+  <div class="card">
+    <div class="bar">
+      <label class="f">Algorithm<select id="oAlgo"></select></label>
+      <label class="f">Sort by<select id="oSort">
+        <option value="created_at">Date</option><option value="total">Total</option><option value="customer">Customer</option><option value="status">Status</option><option value="id">Order number</option></select></label>
+      <label class="f">Direction<select id="oDir"><option value="desc">Largest or newest first</option><option value="asc">Smallest or oldest first</option></select></label>
+      <label class="f">Status<select id="oStatus"><option value="">All</option><option>pending</option><option>confirmed</option><option>shipped</option><option>delivered</option><option>cancelled</option></select></label>
+      <label class="f">Customer<input id="oCust" placeholder="Search name"></label>
+      <label class="f">Rows<select id="oSize"><option>10</option><option selected>25</option><option>50</option><option>100</option></select></label>
+    </div>
+    <div class="stats" id="oStats" role="status"></div>
+    <div class="msg bad" id="oErr"></div>
+    <table><thead><tr><th>Order</th><th>Customer</th><th class="r">Total</th><th>Status</th><th>Placed</th><th>Change status</th></tr></thead><tbody id="oBody"></tbody></table>
+    <div class="pager"><button class="b ghost" id="oPrev">Previous</button><span id="oPage"></span><button class="b ghost" id="oNext">Next</button></div>
+  </div>
+</section>
+
+<!-- CATALOG -->
+<section class="page" id="page-catalog">
+  <h1>Catalog and new order</h1>
+  <p class="lede">Add products, then build an order. Stock is checked when you place it, and cancelling an order returns the stock.</p>
+  <div class="grid g2">
+    <div class="card">
+      <h2>Products</h2>
+      <div class="bar" style="margin-top:8px">
+        <label class="f">Name<input id="pName" placeholder="Product name"></label>
+        <label class="f">Price<input id="pPrice" type="number" min="0" style="width:90px"></label>
+        <label class="f">Stock<input id="pStock" type="number" min="0" style="width:80px"></label>
+        <button class="b" id="pAdd">Add product</button>
+      </div>
+      <div class="bar">
+        <label class="f">Sort by<select id="pSort"><option value="id">Newest</option><option value="name">Name</option><option value="price">Price</option><option value="stock">Stock</option></select></label>
+        <label class="f">Direction<select id="pDir"><option value="asc">Low to high</option><option value="desc">High to low</option></select></label>
+      </div>
+      <table><thead><tr><th>Name</th><th class="r">Price</th><th class="r">Stock</th></tr></thead><tbody id="pBody"></tbody></table>
+    </div>
+    <div class="card">
+      <h2>New order</h2>
+      <div class="bar" style="margin-top:8px">
+        <label class="f">Customer name<input id="nName"></label>
+        <label class="f">Email (optional)<input id="nEmail" type="email"></label>
+      </div>
+      <div class="bar">
+        <label class="f">Delivery address<input id="nAddr" placeholder="House no, street, area" style="width:220px"></label>
+        <label class="f">Latitude<input id="nLat" type="number" step="any" placeholder="28.6315" style="width:105px"></label>
+        <label class="f">Longitude<input id="nLng" type="number" step="any" placeholder="77.2167" style="width:105px"></label>
+      </div>
+      <div class="note" style="margin:-4px 0 10px">Latitude and longitude put the order on the Delivery route page. Leave them blank and the order is skipped when routes are planned.</div>
+      <div class="bar">
+        <label class="f">Product<select id="nProd"></select></label>
+        <label class="f">Quantity<input id="nQty" type="number" min="1" value="1" style="width:80px"></label>
+        <button class="b ghost" id="nAdd">Add to cart</button>
+      </div>
+      <table><tbody id="cart"></tbody></table>
+      <div class="bar" style="margin-top:12px"><button class="b" id="nPlace">Place order</button><button class="b ghost" id="nClear">Clear cart</button></div>
+      <div class="msg" id="nMsg" role="status"></div>
+    </div>
+  </div>
+</section>
+
+<!-- DELIVERY ROUTE -->
+<section class="page" id="page-route">
+  <h1>Delivery route</h1>
+  <p class="lede">A van leaves the warehouse, delivers every selected order once and returns. Pick the orders and an algorithm to get the shortest route, the distance and an arrival time for each stop.</p>
+  <div class="card">
+    <div class="bar">
+      <label class="f">Orders to deliver<select id="rStatus"><option value="pending,confirmed" selected>Pending and confirmed</option><option value="confirmed">Confirmed only</option><option value="pending">Pending only</option></select></label>
+      <label class="f">Algorithm<select id="rAlgo"></select></label>
+      <label class="f">Max stops<input id="rLimit" type="number" min="1" max="150" value="10" style="width:80px"></label>
+      <label class="f">Warehouse lat<input id="rDLat" type="number" step="any" style="width:110px"></label>
+      <label class="f">Warehouse lng<input id="rDLng" type="number" step="any" style="width:110px"></label>
+      <button class="b" id="rGo">Find route</button>
+    </div>
+    <div class="bar">
+      <button class="b ghost" id="rDemo">Fill demo locations</button>
+      <button class="b ghost" id="rDispatch" disabled>Dispatch this route</button>
+      <label class="chip"><input type="checkbox" id="rShowBase" checked>Show as-placed route</label>
+      <span class="msg" id="rMsg" role="status"></span>
+    </div>
+    <div class="stats" id="rStats" role="status"></div>
+    <svg id="rMap" viewBox="0 0 760 440" role="img" aria-label="Delivery route map"></svg>
+    <div class="legend" id="rLegend"></div>
+    <div class="note">Schematic map, north is up. Distance is straight-line (haversine) times 1.3 to allow for roads. Average speed 30 km/h and 5 minutes at each stop.</div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h2>Stops in delivery order</h2>
+    <table><thead><tr><th>Stop</th><th>Order</th><th>Customer</th><th>Address</th><th class="r">Leg (km)</th><th class="r">Total (km)</th><th class="r">Arrives in</th></tr></thead><tbody id="rBody"></tbody></table>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h2>Algorithm comparison</h2>
+    <p class="sub">Every algorithm runs on the same stops. Exact algorithms find the true shortest route but only work for a few stops, because the work explodes as stops are added.</p>
+    <table><thead><tr><th>Algorithm</th><th>Technique</th><th>Time</th><th class="r">Distance (km)</th><th class="r">Saved vs as placed</th><th class="r">Steps</th><th class="r">Time (ms)</th></tr></thead><tbody id="rCmp"></tbody></table>
+    <div class="note" id="rGap"></div>
+    <details class="how"><summary>How the route is found</summary>
+      <p>This is the travelling salesman problem, which is NP-hard. Nearest neighbour is greedy: from where the van is, always drive to the closest stop not yet visited. 2-opt starts from that route and keeps reversing any stretch of it that removes a crossing, until no reversal helps. Held-Karp is dynamic programming over subsets of stops and is exact in O(n² · 2ⁿ). Brute force tries all n! orders and is exact but only practical up to 8 stops.</p></details>
+  </div>
+</section>
+
+<!-- LAB -->
+<section class="page" id="page-lab">
+  <h1>Sorting lab</h1>
+  <p class="lede">Run the algorithms on the same data at growing sizes, then compare how time and comparisons grow. Quadratic algorithms are skipped above 3,000 items so the page stays responsive.</p>
+  <div class="card">
+    <h2>Benchmark</h2>
+    <div class="bar" style="margin-top:8px"><div><div class="sub" style="margin:0 0 4px">Input sizes</div><div class="chips" id="sizeChips"></div></div></div>
+    <div class="bar"><div><div class="sub" style="margin:0 0 4px">Algorithms</div><div class="chips" id="algoChips"></div></div></div>
+    <div class="bar">
+      <label class="f">Input order<select id="bCase"><option value="random">Random</option><option value="sorted">Already sorted</option><option value="reversed">Reverse sorted</option><option value="nearly">Nearly sorted</option></select></label>
+      <label class="f">Measure<select id="bMetric"><option value="time_ms">Time (ms)</option><option value="comparisons">Comparisons</option><option value="moves">Moves (swaps or writes)</option></select></label>
+      <label class="f">Axes<select id="bScale"><option value="linear">Linear</option><option value="log">Log-log (slope is the exponent)</option></select></label>
+      <button class="b" id="bRun">Run benchmark</button>
+      <span class="msg" id="bMsg" role="status"></span>
+    </div>
+    <div class="chartbox tall"><canvas id="cBench"></canvas><div id="bHint" class="empty" style="position:absolute;inset:0;display:grid;place-items:center">Running the first benchmark...</div></div>
+    <div id="bNote" class="note"></div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h2>Measured growth</h2>
+    <p class="sub">The exponent is the slope of the best-fit line on log-log axes for the measure chosen above. Quadratic algorithms land near 2. Algorithms that run in n log n land a little above 1.</p>
+    <table><thead><tr><th>Algorithm</th><th>Average case</th><th class="r">Measured exponent</th><th class="r">Largest n</th><th class="r">Time (ms)</th><th class="r">Comparisons</th><th class="r">Moves</th></tr></thead><tbody id="fitBody"><tr><td colspan="7" class="empty">Run a benchmark to fill this table.</td></tr></tbody></table>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h2>Watch it sort</h2>
+    <p class="sub">Green bars are already in their final position.</p>
+    <div class="bar">
+      <label class="f">Algorithm<select id="vAlgo"></select></label>
+      <label class="f">Bars<input id="vN" type="range" min="8" max="60" value="32"></label>
+      <label class="f">Input order<select id="vCase"><option value="random">Random</option><option value="reversed">Reverse sorted</option><option value="nearly">Nearly sorted</option><option value="sorted">Already sorted</option></select></label>
+      <label class="f">Speed<input id="vSpeed" type="range" min="10" max="800" value="120"></label>
+      <button class="b" id="vGo">Sort</button><button class="b ghost" id="vPause">Pause</button><button class="b ghost" id="vStep">Step</button>
+    </div>
+    <canvas class="vis" id="vis" role="img" aria-label="Bars being sorted"></canvas>
+    <div class="msg" id="vInfo" role="status"></div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h2>Complexity reference</h2>
+    <table><thead><tr><th>Algorithm</th><th>Technique</th><th>Best</th><th>Average</th><th>Worst</th><th>Extra space</th><th>Stable</th></tr></thead><tbody id="refBody"></tbody></table>
+  </div>
+</section>
+</main>
+</div>
+
+<script>
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const inr = n => "₹" + Math.round(n).toLocaleString("en-IN");
+const num = n => (n === null || n === undefined) ? "n/a" : Number(n).toLocaleString("en-IN");
+const ms = n => n < 1 ? n.toFixed(3) : n < 100 ? n.toFixed(1) : Math.round(n).toLocaleString("en-IN");
+async function api(url, opts) {
+  const r = await fetch(url, opts);
+  const d = r.status === 204 ? {} : await r.json();
+  if (!r.ok) throw new Error(d.error || "Request failed");
+  return d;
+}
+const send = (url, body, method = "POST") => api(url, {method, headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+
+/* ---------- theme-aware colours ---------- */
+const dark = () => document.documentElement.dataset.theme !== "light";
+const SERIES = { light: ["#4f8cff","#22d3ee","#34d399","#fbbf24","#f472b6","#fb923c","#a78bfa","#f87171"], dark: ["#4f8cff","#22d3ee","#34d399","#fbbf24","#f472b6","#fb923c","#a78bfa","#f87171"] };
+const ALGO_ORDER = ["merge","quick","heap","shell","insertion","selection","bubble","timsort"];
+const colorOf = k => SERIES[dark() ? "dark" : "light"][Math.max(0, ALGO_ORDER.indexOf(k))];
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const STATUS_DOT = {pending:"#c98500", confirmed:"#2a78d6", shipped:"#7b6cf0", delivered:"#1a8f3c", cancelled:"#e34948"};
+
+const charts = {};
+function chart(id, cfg) {
+  const el = $("#" + id);
+  if (!el) return null;
+  if (typeof Chart === "undefined") {
+    el.parentElement.innerHTML = '<div class="empty">Charts could not load. Chart.js comes from a CDN, so check your internet connection and reload.</div>';
+    return null;
+  }
+  charts[id]?.destroy();
+  const ink2 = css("--ink2"), line = css("--line");
+  Chart.defaults.font.family = '"Manrope", system-ui, sans-serif';
+  Object.assign(Chart.defaults.plugins.tooltip, {backgroundColor: css("--tip"), titleColor: css("--ink"), bodyColor: css("--ink2"), borderColor: css("--line"), borderWidth: 1, padding: 12, cornerRadius: 12});
+  Chart.defaults.color = ink2;
+  cfg.options = Object.assign({responsive: true, maintainAspectRatio: false, animation: false}, cfg.options);
+  const o = cfg.options; o.scales = o.scales || {};
+  for (const ax of ["x", "y"]) {
+    o.scales[ax] = Object.assign({grid: {color: line}, border: {display: false}, ticks: {color: ink2}}, o.scales[ax]);
+  }
+  return charts[id] = new Chart($("#" + id), cfg);
+}
+
+/* ---------- navigation ---------- */
+const pages = {overview: loadOverview, orders: () => { loadOrders(); }, catalog: loadProducts, route: () => loadRoute(), lab: loadLab};
+function show(p) {
+  if (!pages[p]) p = "overview";
+  $$(".page").forEach(s => s.classList.toggle("on", s.id === "page-" + p));
+  $$(".rail button").forEach(b => b.toggleAttribute("aria-current", b.dataset.page === p) || b.removeAttribute("aria-current"));
+  $$(".rail button").forEach(b => { if (b.dataset.page === p) b.setAttribute("aria-current", "page"); });
+  pages[p]();
+}
+$$(".rail button").forEach(b => b.onclick = () => { location.hash = b.dataset.page; });
+addEventListener("hashchange", () => show(location.hash.slice(1)));
+
+/* ---------- overview ---------- */
+let analytics = null;
+async function loadOverview() { analytics = await api("/api/analytics"); drawOverview(); }
+function drawOverview() {
+  const a = analytics, k = a.kpis;
+  $("#kpis").innerHTML = [
+    [num(k.orders), "Orders"], [inr(k.revenue), "Revenue, excluding cancelled"],
+    [inr(k.avg_order), "Average order"], [k.low_stock + " of " + k.products, "Products with stock under 10"]
+  ].map(([v, l], i) => `<div class="card kpi ${i === 1 ? "hero" : ""}"><span>${l}</span><b>${v}</b></div>`).join("");
+  const c1 = SERIES[dark() ? "dark" : "light"][0];
+  chart("cDaily", {type: "line", data: {labels: a.daily.map(d => d.day.slice(5)), datasets: [{label: "Orders", data: a.daily.map(d => d.orders), borderColor: c1, fill: true, backgroundColor: cx => { const a = cx.chart.chartArea; if (!a) return c1 + "00"; const g = cx.chart.ctx.createLinearGradient(0, a.top, 0, a.bottom); g.addColorStop(0, c1 + "66"); g.addColorStop(1, c1 + "00"); return g; }, borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 5, tension: .4}]},
+    options: {interaction: {mode: "index", intersect: false}, plugins: {legend: {display: false}}, scales: {y: {beginAtZero: true}, x: {ticks: {maxTicksLimit: 10}}}}});
+  chart("cStatus", {type: "bar", data: {labels: a.by_status.map(s => s.status), datasets: [{label: "Orders", data: a.by_status.map(s => s.count), backgroundColor: c1, borderRadius: 8, maxBarThickness: 22}]},
+    options: {indexAxis: "y", plugins: {legend: {display: false}}, scales: {x: {beginAtZero: true}, y: {grid: {display: false}}}}});
+  chart("cHist", {type: "bar", data: {labels: a.histogram.map(h => inr(h.from)), datasets: [{label: "Orders", data: a.histogram.map(h => h.count), backgroundColor: c1, borderRadius: 6, categoryPercentage: .95, barPercentage: .95}]},
+    options: {plugins: {legend: {display: false}, tooltip: {callbacks: {title: i => { const h = a.histogram[i[0].dataIndex]; return inr(h.from) + " to " + inr(h.to); }}}}, scales: {x: {grid: {display: false}, ticks: {maxTicksLimit: 6}}, y: {beginAtZero: true}}}});
+  chart("cProd", {type: "bar", data: {labels: a.top_products.map(p => p.name), datasets: [{label: "Revenue", data: a.top_products.map(p => p.revenue), backgroundColor: c1, borderRadius: 8, maxBarThickness: 18}]},
+    options: {indexAxis: "y", plugins: {legend: {display: false}, tooltip: {callbacks: {label: i => inr(i.raw)}}}, scales: {x: {beginAtZero: true, ticks: {callback: v => inr(v / 1000) + "k"}}, y: {grid: {display: false}}}}});
+  chart("cCust", {type: "bar", data: {labels: a.top_customers.map(p => p.name), datasets: [{label: "Spend", data: a.top_customers.map(p => p.revenue), backgroundColor: c1, borderRadius: 8, maxBarThickness: 18}]},
+    options: {indexAxis: "y", plugins: {legend: {display: false}, tooltip: {callbacks: {label: i => inr(i.raw)}}}, scales: {x: {beginAtZero: true, ticks: {callback: v => inr(v / 1000) + "k"}}, y: {grid: {display: false}}}}});
+}
+$("#seedBtn").onclick = async () => {
+  const b = $("#seedBtn"), m = $("#seedMsg"); b.disabled = true; m.className = "msg"; m.textContent = "Adding orders...";
+  try { const r = await send("/api/seed", {count: +$("#seedCount").value}); m.className = "msg good"; m.textContent = num(r.added) + " orders added."; await loadOverview(); }
+  catch (e) { m.className = "msg bad"; m.textContent = e.message; } finally { b.disabled = false; }
+};
+$("#resetBtn").onclick = async () => {
+  if (!confirm("Delete every order? Products stay.")) return;
+  await send("/api/reset", {}); $("#seedMsg").className = "msg"; $("#seedMsg").textContent = "All orders deleted."; loadOverview();
+};
+
+/* ---------- orders ---------- */
+let algoInfo = [], oPage = 1, oPages = 1, oTimer, oReq = 0;
+async function ensureAlgos() {
+  if (algoInfo.length) return;
+  algoInfo = await api("/api/algorithms");
+  $("#oAlgo").innerHTML = `<option value="sql">Database ORDER BY (baseline)</option>` +
+    algoInfo.map(a => `<option value="${a.key}" ${a.key === "merge" ? "selected" : ""}>${esc(a.label)}</option>`).join("");
+  $("#vAlgo").innerHTML = algoInfo.filter(a => a.key !== "timsort").map(a => `<option value="${a.key}" ${a.key === "quick" ? "selected" : ""}>${esc(a.label)}</option>`).join("");
+  renderRef();
+}
+function renderRef() {
+  $("#refBody").innerHTML = algoInfo.map(a => `<tr><td><span class="dot" style="background:${colorOf(a.key)}"></span>${esc(a.label)}</td><td>${esc(a.paradigm)}</td><td>${a.best}</td><td>${a.avg}</td><td>${a.worst}</td><td>${a.space}</td><td>${a.stable ? "Yes" : "No"}</td></tr>`).join("");
+}
+async function loadOrders(resetPage) {
+  await ensureAlgos();
+  if (resetPage) oPage = 1;
+  const q = new URLSearchParams({algorithm: $("#oAlgo").value, sort_by: $("#oSort").value, order: $("#oDir").value, page: oPage, page_size: $("#oSize").value});
+  if ($("#oStatus").value) q.set("status", $("#oStatus").value);
+  if ($("#oCust").value.trim()) q.set("customer", $("#oCust").value.trim());
+  $("#oErr").textContent = "";
+  const mine = ++oReq;                       // ignore answers that arrive after a newer request
+  if ($("#oAlgo").value !== "sql" && algoInfo.find(a => a.key === $("#oAlgo").value)?.quadratic) $("#oStats").innerHTML = "<div><b>Sorting...</b><span>Quadratic algorithms are slow on large data</span></div>";
+  try {
+    const d = await api("/api/sort-orders?" + q);
+    if (mine !== oReq) return;
+    oPages = d.pages;
+    const s = d.stats;
+    $("#oStats").innerHTML = [
+      [esc(s.label), "Algorithm"], [num(s.n), "Orders sorted"], [num(s.comparisons), "Comparisons"], [num(s.moves), "Moves"],
+      [ms(s.time_ms) + " ms", "Sort time"], [s.avg + " average, " + s.worst + " worst", "Complexity"]
+    ].map(([v, l]) => `<div><b>${v}</b><span>${l}</span></div>`).join("");
+    $("#oBody").innerHTML = d.rows.map(o => `<tr><td>#${o.id}</td><td>${esc(o.customer_name)}</td><td class="r">${inr(o.total)}</td>
+      <td><span class="pill s-${o.status}">${o.status}</span></td><td>${new Date(o.created_at).toLocaleString("en-IN", {dateStyle: "medium", timeStyle: "short"})}</td>
+      <td><select data-id="${o.id}" aria-label="Status of order ${o.id}">${["pending","confirmed","shipped","delivered","cancelled"].map(x => `<option ${x === o.status ? "selected" : ""}>${x}</option>`).join("")}</select></td></tr>`).join("")
+      || `<tr><td colspan="6" class="empty">No orders match. Add sample orders on the Overview page or place one from the catalog.</td></tr>`;
+    $("#oPage").textContent = `Page ${d.page} of ${d.pages}`;
+    $("#oPrev").disabled = d.page <= 1; $("#oNext").disabled = d.page >= d.pages;
+  } catch (e) { if (mine !== oReq) return; $("#oErr").textContent = e.message; $("#oBody").innerHTML = ""; $("#oStats").innerHTML = ""; }
+}
+["oAlgo","oSort","oDir","oStatus","oSize"].forEach(id => $("#" + id).onchange = () => loadOrders(true));
+$("#oCust").oninput = () => { clearTimeout(oTimer); oTimer = setTimeout(() => loadOrders(true), 300); };
+$("#oPrev").onclick = () => { oPage = Math.max(1, oPage - 1); loadOrders(); };
+$("#oNext").onclick = () => { oPage = Math.min(oPages, oPage + 1); loadOrders(); };
+$("#oBody").onchange = async e => {
+  if (e.target.matches("select[data-id]")) {
+    try { await send(`/orders/${e.target.dataset.id}/status`, {status: e.target.value}, "PATCH"); } catch (err) { alert(err.message); }
+    loadOrders();
+  }
+};
+
+/* ---------- catalog ---------- */
+let products = [], cart = [];
+async function loadProducts() {
+  products = await api(`/products?sort_by=${$("#pSort").value}&order=${$("#pDir").value}`);
+  $("#pBody").innerHTML = products.map(p => `<tr><td>${esc(p.name)}</td><td class="r">${inr(p.price)}</td><td class="r">${p.stock}</td></tr>`).join("")
+    || `<tr><td colspan="3" class="empty">No products yet. Add your first product above.</td></tr>`;
+  $("#nProd").innerHTML = products.map(p => `<option value="${p.id}">${esc(p.name)} (${inr(p.price)}, ${p.stock} in stock)</option>`).join("");
+  renderCart();
+}
+$("#pSort").onchange = $("#pDir").onchange = loadProducts;
+$("#pAdd").onclick = async () => {
+  try { await send("/products", {name: $("#pName").value.trim(), price: +$("#pPrice").value, stock: +$("#pStock").value || 0});
+    $("#pName").value = $("#pPrice").value = $("#pStock").value = ""; loadProducts(); } catch (e) { alert(e.message); }
+};
+function renderCart() {
+  $("#cart").innerHTML = cart.map(c => { const p = products.find(x => x.id === c.product_id);
+    return `<tr><td>${esc(p ? p.name : "Product " + c.product_id)}</td><td class="r">× ${c.quantity}</td><td class="r">${p ? inr(p.price * c.quantity) : ""}</td></tr>`; }).join("")
+    || `<tr><td class="empty">The cart is empty. Pick a product and add it.</td></tr>`;
+}
+$("#nAdd").onclick = () => { const id = +$("#nProd").value, q = +$("#nQty").value; if (!id || q < 1) return;
+  const l = cart.find(c => c.product_id === id); l ? l.quantity += q : cart.push({product_id: id, quantity: q}); renderCart(); };
+$("#nClear").onclick = () => { cart = []; renderCart(); };
+$("#nPlace").onclick = async () => {
+  const m = $("#nMsg");
+  try { const r = await send("/orders", {customer_name: $("#nName").value.trim(), customer_email: $("#nEmail").value.trim() || null, items: cart,
+      address: $("#nAddr").value.trim() || null, lat: $("#nLat").value.trim() || null, lng: $("#nLng").value.trim() || null});
+    m.className = "msg good"; m.textContent = `Order #${r.id} placed. Total ${inr(r.total)}.`; cart = [];
+    $("#nAddr").value = $("#nLat").value = $("#nLng").value = ""; loadProducts(); }
+  catch (e) { m.className = "msg bad"; m.textContent = e.message; }
+};
+
+/* ---------- delivery route ---------- */
+let rCfg = null, rReq = 0, rData = null;
+const eta = m => m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`;
+const km = n => Number(n).toLocaleString("en-IN", {minimumFractionDigits: 1, maximumFractionDigits: 1});
+async function loadRoute() {
+  if (!rCfg) {
+    try {
+      rCfg = await api("/api/route/config");
+    } catch (e) { $("#rMsg").className = "msg bad"; $("#rMsg").textContent = e.message; return; }
+    $("#rAlgo").innerHTML = rCfg.algorithms.map(a => `<option value="${a.key}">${esc(a.label)}</option>`).join("");
+    $("#rDLat").value = rCfg.depot.lat; $("#rDLng").value = rCfg.depot.lng;
+    $("#rLimit").max = rCfg.max_stops;
+  }
+  planRoute();
+}
+function rQuery() {
+  return new URLSearchParams({status: $("#rStatus").value, limit: $("#rLimit").value || 10,
+    depot_lat: $("#rDLat").value, depot_lng: $("#rDLng").value});
+}
+async function planRoute() {
+  if (!rCfg) return;
+  const mine = ++rReq, q = rQuery(), algo = $("#rAlgo").value, msg = $("#rMsg");
+  msg.className = "msg"; msg.textContent = "Planning...";
+  $("#rGo").disabled = true;
+  try {
+    const withAlgo = a => "/api/route/plan?" + new URLSearchParams([...q, ["algorithm", a]]);
+    const [plan, base, cmp] = await Promise.all([api(withAlgo(algo)), algo === "as_placed" ? null : api(withAlgo("as_placed")),
+      api("/api/route/compare?" + q)]);
+    if (mine !== rReq) return;
+    rData = {plan, base: base || plan, cmp};
+    msg.textContent = "";
+    drawRoute();
+  } catch (e) {
+    if (mine !== rReq) return;
+    rData = null; msg.className = "msg bad"; msg.textContent = e.message;
+    $("#rStats").innerHTML = ""; $("#rBody").innerHTML = ""; $("#rCmp").innerHTML = ""; $("#rGap").textContent = "";
+    $("#rMap").innerHTML = ""; $("#rLegend").innerHTML = ""; $("#rDispatch").disabled = true;
+  } finally { if (mine === rReq) $("#rGo").disabled = false; }
+}
+function emptyReason(p) {
+  if (p.matching === 0) return "No orders with this status. Place an order on the Catalog page or change the status filter.";
+  return `${p.without_location} of ${p.matching} orders have no delivery location. Click "Fill demo locations", or give latitude and longitude when you place an order.`;
+}
+function drawRoute() {
+  const {plan: p, base, cmp} = rData;
+  $("#rDispatch").disabled = !p.n_stops;
+  const saved = base.total_km - p.total_km, pct = base.total_km ? saved / base.total_km * 100 : 0;
+  $("#rStats").innerHTML = p.n_stops ? [
+    [p.n_stops, "Stops"], [km(p.total_km) + " km", "Round trip distance"], [eta(p.total_min), "Total time with stops"],
+    [p.algorithm === "as_placed" ? "n/a" : km(saved) + " km (" + pct.toFixed(1) + "%)", "Saved vs as placed"],
+    [num(p.stats.steps), "Algorithm steps"], [ms(p.stats.time_ms) + " ms", "Compute time"]
+  ].map(([v, l]) => `<div><b>${v}</b><span>${l}</span></div>`).join("") : `<div><b>No route</b><span>${esc(emptyReason(p))}</span></div>`;
+  if (p.truncated) $("#rMsg").textContent = `Showing the oldest ${p.planned} of ${p.with_location} orders that have a location. Raise Max stops to include more.`;
+  else if (p.without_location) $("#rMsg").textContent = `${p.without_location} matching orders have no location and are skipped.`;
+  drawMap(p, base);
+  $("#rBody").innerHTML = p.stops.map(s => `<tr><td>${s.seq}</td><td>#${s.order_id}</td><td>${esc(s.customer_name)}</td><td>${esc(s.address || "No address")}</td>
+    <td class="r">${km(s.leg_km)}</td><td class="r">${km(s.cum_km)}</td><td class="r">${eta(s.eta_min)}</td></tr>`).join("")
+    + (p.n_stops ? `<tr><td>End</td><td colspan="3">Back at ${esc(p.depot.name)}</td><td class="r">${km(p.return_km)}</td><td class="r">${km(p.total_km)}</td><td class="r"></td></tr>` : "")
+    || `<tr><td colspan="7" class="empty">${esc(emptyReason(p))}</td></tr>`;
+  drawCompare(cmp);
+}
+function drawCompare(c) {
+  $("#rCmp").innerHTML = c.rows.map(r => r.skipped
+    ? `<tr><td>${esc(r.label)}</td><td>${esc(r.paradigm)}</td><td>${esc(r.time)}</td><td class="r" colspan="4">Skipped, ${esc(r.skipped)}</td></tr>`
+    : `<tr class="${r.algorithm === c.best ? "best" : ""}"><td>${esc(r.label)}${r.algorithm === c.best ? '<span class="badge">Shortest</span>' : ""}</td><td>${esc(r.paradigm)}</td><td>${esc(r.time)}</td>
+       <td class="r">${km(r.total_km)}</td><td class="r">${r.saving_pct === undefined ? "n/a" : r.saving_pct.toFixed(1) + "%"}</td><td class="r">${num(r.steps)}</td><td class="r">${ms(r.time_ms)}</td></tr>`).join("")
+    || `<tr><td colspan="7" class="empty">Nothing to compare yet.</td></tr>`;
+  const exact = c.rows.find(r => r.exact && r.total_km !== undefined && r.algorithm === "held_karp") || c.rows.find(r => r.exact && r.total_km !== undefined);
+  const heur = c.rows.find(r => r.algorithm === "two_opt" && r.total_km !== undefined);
+  $("#rGap").textContent = exact && heur && exact.total_km > 0
+    ? `With ${c.n_stops} stops the exact answer is ${km(exact.total_km)} km. Nearest neighbour + 2-opt gets ${km(heur.total_km)} km, ${((heur.total_km / exact.total_km - 1) * 100).toFixed(1)}% above the best possible, in far fewer steps.`
+    : c.n_stops > 12 ? "Above 12 stops the exact algorithms are skipped, since their running time grows exponentially or factorially. This is why heuristics are used on real routes." : "";
+}
+function drawMap(p, base) {
+  const svg = $("#rMap"), W = 760, H = 440, pad = 44, n = p.n_stops;
+  const pts = [[p.depot.lat, p.depot.lng], ...p.stops.map(s => [s.lat, s.lng])];
+  const k = Math.cos(pts.reduce((a, q) => a + q[0], 0) / pts.length * Math.PI / 180);
+  const X = q => q[1] * k, Y = q => -q[0];
+  const xs = pts.map(X), ys = pts.map(Y);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const sc = Math.min((W - 2 * pad) / Math.max(x1 - x0, 1e-6), (H - 2 * pad) / Math.max(y1 - y0, 1e-6));
+  const ox = (W - (x1 - x0) * sc) / 2 - x0 * sc, oy = (H - (y1 - y0) * sc) / 2 - y0 * sc;
+  const P = q => [X(q) * sc + ox, Y(q) * sc + oy];
+  const D = P(pts[0]), S = pts.slice(1).map(P);
+  const line = list => "M" + list.map(q => q[0].toFixed(1) + " " + q[1].toFixed(1)).join(" L");
+  let g = "";
+  for (let x = pad; x < W; x += 60) g += `<line x1="${x}" y1="0" x2="${x}" y2="${H}" stroke="var(--line)" stroke-width=".6" opacity=".6"/>`;
+  for (let y = pad; y < H; y += 60) g += `<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="var(--line)" stroke-width=".6" opacity=".6"/>`;
+  const showBase = $("#rShowBase").checked && p.algorithm !== "as_placed" && n > 1;
+  if (showBase) {
+    const byId = Object.fromEntries(p.stops.map((s, i) => [s.order_id, S[i]]));
+    g += `<path d="${line([D, ...base.stops.map(s => byId[s.order_id]), D])}" fill="none" stroke="var(--ink3)" stroke-width="1.6" stroke-dasharray="5 4" stroke-linejoin="round" opacity=".75"/>`;
+  }
+  const route = [D, ...S, D];
+  if (n) g += `<path d="${line(route)}" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>`;
+  if (n && n <= 60) for (let i = 0; i < route.length - 1; i++) {
+    const [a, b] = [route[i], route[i + 1]];
+    if (Math.hypot(b[0] - a[0], b[1] - a[1]) < 26) continue;
+    const ang = Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI;
+    g += `<path d="M-5 -4 L5 0 L-5 4 Z" fill="var(--accent)" transform="translate(${((a[0] + b[0]) / 2).toFixed(1)} ${((a[1] + b[1]) / 2).toFixed(1)}) rotate(${ang.toFixed(1)})"/>`;
+  }
+  const r = n > 60 ? 6 : n > 30 ? 9 : 12;
+  p.stops.forEach((s, i) => {
+    const [x, y] = S[i];
+    g += `<g><title>Stop ${s.seq}: order #${s.order_id}, ${esc(s.customer_name)}${s.address ? ", " + esc(s.address) : ""}. ${km(s.leg_km)} km from the previous stop, arrives in ${eta(s.eta_min)}.</title>
+      <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>
+      ${n <= 60 ? `<text x="${x.toFixed(1)}" y="${(y + (r > 9 ? 4.2 : 3.4)).toFixed(1)}" text-anchor="middle" font-size="${r > 9 ? 12 : 10}" font-weight="600" fill="#fff">${s.seq}</text>` : ""}</g>`;
+  });
+  g += `<g><title>${esc(p.depot.name)}</title><rect x="${(D[0] - 12).toFixed(1)}" y="${(D[1] - 12).toFixed(1)}" width="24" height="24" rx="5" fill="var(--ink)" stroke="var(--surface)" stroke-width="2"/>
+    <text x="${D[0].toFixed(1)}" y="${(D[1] + 4.5).toFixed(1)}" text-anchor="middle" font-size="13" font-weight="600" fill="var(--surface)">W</text></g>`;
+  if (!n) g += `<text x="${W / 2}" y="${H - 24}" text-anchor="middle" font-size="14" fill="var(--ink2)">No stops to show</text>`;
+  svg.setAttribute("aria-label", n ? `Delivery route with ${n} stops, ${km(p.total_km)} km round trip` : "No delivery stops");
+  svg.innerHTML = g;
+  $("#rLegend").innerHTML = `<span><i></i>Route (${esc(p.label)})</span>` + (showBase ? `<span><i class="dash"></i>As placed, ${km(base.total_km)} km</span>` : "")
+    + `<span>W = ${esc(p.depot.name)}</span><span>Numbers are the delivery order</span>`;
+}
+$("#rGo").onclick = planRoute;
+["rStatus", "rAlgo", "rLimit"].forEach(id => $("#" + id).onchange = planRoute);
+$("#rShowBase").onchange = () => { if (rData) drawMap(rData.plan, rData.base); };
+$("#rDemo").onclick = async () => {
+  const m = $("#rMsg");
+  try {
+    const r = await send("/api/route/demo-locations", {depot_lat: $("#rDLat").value || null, depot_lng: $("#rDLng").value || null});
+    await planRoute(); m.className = "msg good"; m.textContent = r.updated ? `Gave ${r.updated} orders a demo delivery point near the warehouse.` : "Every order already has a location.";
+  } catch (e) { m.className = "msg bad"; m.textContent = e.message; }
+};
+$("#rDispatch").onclick = async () => {
+  if (!rData || !rData.plan.n_stops) return;
+  const ids = rData.plan.stops.map(s => s.order_id);
+  if (!confirm(`Mark these ${ids.length} orders as shipped?`)) return;
+  const m = $("#rMsg");
+  try {
+    const r = await send("/api/route/dispatch", {order_ids: ids});
+    await planRoute(); m.className = "msg good"; m.textContent = `${r.shipped} orders marked as shipped.`;
+  } catch (e) { m.className = "msg bad"; m.textContent = e.message; }
+};
+
+/* ---------- lab: benchmark ---------- */
+const SIZES = [100, 250, 500, 1000, 2000, 3000, 5000, 10000, 20000, 50000];
+let bench = null, labReady = false;
+async function loadLab() {
+  await ensureAlgos();
+  if (labReady) return; labReady = true;
+  $("#sizeChips").innerHTML = SIZES.map(n => `<label class="chip"><input type="checkbox" name="size" value="${n}" ${[100,500,1000,2000,5000,10000].includes(n) ? "checked" : ""}>${n.toLocaleString("en-IN")}</label>`).join("");
+  $("#algoChips").innerHTML = algoInfo.map(a => `<label class="chip"><input type="checkbox" name="algo" value="${a.key}" checked><span class="sw" style="background:${colorOf(a.key)}"></span>${esc(a.label)}</label>`).join("");
+  $("#bRun").click();                       // draw something straight away
+}
+$("#bRun").onclick = async () => {
+  const sizes = $$("input[name=size]:checked").map(i => +i.value), algorithms = $$("input[name=algo]:checked").map(i => i.value);
+  const m = $("#bMsg"), b = $("#bRun"); b.disabled = true; m.className = "msg"; m.textContent = "Running. Large sizes can take a few seconds.";
+  try { bench = await send("/api/benchmark", {sizes, algorithms, case: $("#bCase").value}); m.textContent = ""; drawBench(); }
+  catch (e) { m.className = "msg bad"; m.textContent = e.message; } finally { b.disabled = false; }
+};
+["bMetric","bScale"].forEach(id => $("#" + id).onchange = () => bench && drawBench());
+const METRIC_LABEL = {time_ms: "Time (ms)", comparisons: "Comparisons", moves: "Moves (swaps or writes)"};
+function fitExponent(points, metric) {
+  const p = points.filter(q => q[metric] > 0 && q.n > 0);
+  if (p.length < 3) return null;
+  const xs = p.map(q => Math.log(q.n)), ys = p.map(q => Math.log(q[metric]));
+  const mx = xs.reduce((a, b) => a + b) / xs.length, my = ys.reduce((a, b) => a + b) / ys.length;
+  let sxy = 0, sxx = 0; xs.forEach((x, i) => { sxy += (x - mx) * (ys[i] - my); sxx += (x - mx) ** 2; });
+  return sxx ? sxy / sxx : null;
+}
+function drawBench() {
+  $("#bHint")?.remove();
+  const metric = $("#bMetric").value, logScale = $("#bScale").value === "log";
+  const sets = bench.series.map(s => ({label: s.label, borderColor: colorOf(s.algorithm), backgroundColor: colorOf(s.algorithm), borderWidth: 2, pointRadius: 0, pointHoverRadius: 5, tension: 0, showLine: true,
+    data: s.points.filter(p => p[metric] !== null).map(p => ({x: p.n, y: logScale ? Math.max(p[metric], 1e-3) : p[metric]}))}));
+  chart("cBench", {type: "scatter", data: {datasets: sets}, options: {
+    interaction: {mode: "nearest", axis: "x", intersect: false},
+    plugins: {legend: {position: "bottom", labels: {usePointStyle: true, pointStyle: "rect"}}, tooltip: {callbacks: {label: i => `${i.dataset.label}: ${i.parsed.y.toLocaleString("en-IN", {maximumFractionDigits: 3})} at n = ${i.parsed.x.toLocaleString("en-IN")}`}}},
+    scales: {x: {type: logScale ? "logarithmic" : "linear", title: {display: true, text: "Number of items (n)"}, beginAtZero: !logScale},
+             y: {type: logScale ? "logarithmic" : "linear", title: {display: true, text: METRIC_LABEL[metric]}, beginAtZero: !logScale}}}});
+  const sk = bench.skipped; const skippedAlgos = [...new Set(sk.map(x => x.algorithm))];
+  $("#bNote").textContent = skippedAlgos.length ? `Skipped above 3,000 items: ${skippedAlgos.map(a => algoInfo.find(x => x.key === a).label).join(", ")}. Their lines stop where the data stops.` : "";
+  $("#fitBody").innerHTML = bench.series.map(s => {
+    const info = algoInfo.find(a => a.key === s.algorithm), last = s.points[s.points.length - 1];
+    const ex = fitExponent(s.points, metric);
+    return `<tr><td><span class="dot" style="background:${colorOf(s.algorithm)}"></span>${esc(s.label)}</td><td>${info.avg}</td>
+      <td class="r">${ex === null ? "needs 3 sizes" : ex.toFixed(2)}</td><td class="r">${last ? num(last.n) : "n/a"}</td>
+      <td class="r">${last ? ms(last.time_ms) : "n/a"}</td><td class="r">${last ? num(last.comparisons) : "n/a"}</td><td class="r">${last ? num(last.moves) : "n/a"}</td></tr>`;
+  }).join("");
+}
+
+/* ---------- lab: visualiser ---------- */
+const V = {frames: [], i: 0, playing: false, t: 0, final: []};
+const cv = $("#vis"), ctx = cv.getContext("2d");
+function drawFrame() {
+  const dpr = devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  if (cv.width !== w * dpr) { cv.width = w * dpr; cv.height = h * dpr; }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
+  const f = V.frames[V.i]; if (!f) return;
+  const n = f.length, gap = 2, bw = (w - gap * (n - 1)) / n, bar = css("--bar"), done = css("--bar-done");
+  f.forEach((v, k) => { const bh = (v / n) * (h - 6); ctx.fillStyle = v === V.final[k] ? done : bar; ctx.fillRect(k * (bw + gap), h - bh, bw, bh); });
+}
+function tick(ts) {
+  if (V.playing) {
+    const dt = V.t ? ts - V.t : 16; V.t = ts;
+    V.i = Math.min(V.frames.length - 1, V.i + Math.max(1, Math.round($("#vSpeed").value * dt / 1000)));
+    if (V.i >= V.frames.length - 1) V.playing = false;
+    drawFrame(); info();
+  }
+  requestAnimationFrame(tick);
+}
+function info() { $("#vInfo").textContent = V.frames.length ? `Step ${V.i} of ${V.frames.length - 1}. ${V.meta}` : ""; }
+$("#vGo").onclick = async () => {
+  try {
+    const d = await send("/api/visualize", {algorithm: $("#vAlgo").value, n: +$("#vN").value, case: $("#vCase").value});
+    V.frames = d.frames; V.final = d.frames[d.frames.length - 1]; V.i = 0; V.t = 0; V.playing = true;
+    V.meta = `${d.label} used ${num(d.comparisons)} comparisons and ${num(d.moves)} moves on ${d.frames[0].length} items.`;
+    drawFrame(); info();
+  } catch (e) { $("#vInfo").textContent = e.message; }
+};
+$("#vPause").onclick = () => { V.playing = !V.playing; V.t = 0; $("#vPause").textContent = V.playing ? "Pause" : "Resume"; };
+$("#vStep").onclick = () => { V.playing = false; $("#vPause").textContent = "Resume"; V.i = Math.min(V.frames.length - 1, V.i + 1); drawFrame(); info(); };
+requestAnimationFrame(tick);
+addEventListener("resize", drawFrame);
+
+/* ---------- theme change redraws charts ---------- */
+const redrawTheme = () => {
+  if (analytics) drawOverview(); if (bench) drawBench(); drawFrame();
+  if (algoInfo.length) { $$("#algoChips .sw").forEach((s, i) => s.style.background = colorOf(algoInfo[i].key)); renderRef(); }
+};
+
+show(location.hash.slice(1) || "overview");
+</script>
+</body>
+</html>
